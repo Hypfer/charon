@@ -1,0 +1,17 @@
+{
+  "name": "charon",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@josephdadams/usbrelay": "^1.0.3",
+    "express": "^4.21.1",
+    "mqtt": "^5.10.2",
+    "semaphore": "^1.1.0"
+  }
+}
