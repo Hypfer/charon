@@ -96,11 +96,7 @@ class MqttClient {
 
         try {
             if (topic === `${MqttClient.TOPIC_PREFIX}/${this.identifier}/chime/set`) {
-                if (this.chimeEnabled) {
-                    await this.triggerChime(duration || 100); // Default to 100ms for chime
-                } else {
-                    Logger.info("Chime is disabled; skipping chime trigger");
-                }
+                await this.triggerChime(duration || 100); // Default to 100ms for chime
             } else if (topic === `${MqttClient.TOPIC_PREFIX}/${this.identifier}/opener/set`) {
                 await this.triggerOpener(duration || 3000); // Default to 3000ms for opener
             }
