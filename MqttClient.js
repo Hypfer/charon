@@ -69,11 +69,10 @@ class MqttClient {
     }
 
     async handleMessage(topic, message) {
-        let duration;
-
         if (topic === `${MqttClient.TOPIC_PREFIX}/${this.identifier}/chime/enabled/set`) {
             // Handle chime switch state
             const state = message.toString().toLowerCase();
+            
             if (state === "on") {
                 this.chimeEnabled = true;
                 Logger.info("Chime enabled via MQTT switch");
@@ -81,24 +80,28 @@ class MqttClient {
                 this.chimeEnabled = false;
                 Logger.info("Chime disabled via MQTT switch");
             }
-            this.publishChimeSwitchState(); // Confirm the new state
+            
+            this.publishChimeSwitchState();
+            return;
+        }
+
+        let duration;
+
+        try {
+            const parsedValue = parseInt(message.toString(), 10);
+            
+            duration = !isNaN(parsedValue) && parsedValue > 0 ? parsedValue : undefined;
+        } catch (err) {
+            Logger.warn(`Received invalid payload for topic '${topic}'. Discarding`);
+            
             return;
         }
 
         try {
-            const payload = JSON.parse(message.toString());
-            duration = parseInt(payload.duration, 10);
-        } catch {
-            Logger.warn("Received non-JSON or invalid payload, using default duration");
-        }
-
-        duration = duration > 0 ? duration : undefined; // Ensure duration is valid or undefined for defaults
-
-        try {
             if (topic === `${MqttClient.TOPIC_PREFIX}/${this.identifier}/chime/set`) {
-                await this.triggerChime(duration || 100); // Default to 100ms for chime
+                await this.triggerChime(duration); 
             } else if (topic === `${MqttClient.TOPIC_PREFIX}/${this.identifier}/opener/set`) {
-                await this.triggerOpener(duration || 3000); // Default to 3000ms for opener
+                await this.triggerOpener(duration);
             }
         } catch (error) {
             Logger.error("Failed to process MQTT message:", error.message);
@@ -139,6 +142,7 @@ class MqttClient {
                 payload: {
                     name: "Door Chime",
                     command_topic: `${baseTopic}/chime/set`,
+                    payload_press: "200",
                     unique_id: `charon_${this.identifier}_chime`,
                     device: device,
                 },
@@ -148,7 +152,58 @@ class MqttClient {
                 payload: {
                     name: "Door Opener",
                     command_topic: `${baseTopic}/opener/set`,
+                    payload_press: "3000",
                     unique_id: `charon_${this.identifier}_opener`,
+                    device: device,
+                },
+            },
+            {
+                topic: `homeassistant/button/charon_${this.identifier}_notify_1/config`,
+                payload: {
+                    name: "Notify 1",
+                    payload_press: "200",
+                    command_topic: `${baseTopic}/chime/set`,
+                    unique_id: `charon_${this.identifier}_notify_1`,
+                    device: device,
+                },
+            },
+            {
+                topic: `homeassistant/button/charon_${this.identifier}_notify_2/config`,
+                payload: {
+                    name: "Notify 2",
+                    payload_press: "400",
+                    command_topic: `${baseTopic}/chime/set`,
+                    unique_id: `charon_${this.identifier}_notify_2`,
+                    device: device,
+                },
+            },
+            {
+                topic: `homeassistant/button/charon_${this.identifier}_notify_3/config`,
+                payload: {
+                    name: "Notify 3",
+                    payload_press: "600",
+                    command_topic: `${baseTopic}/chime/set`,
+                    unique_id: `charon_${this.identifier}_notify_3`,
+                    device: device,
+                },
+            },
+            {
+                topic: `homeassistant/button/charon_${this.identifier}_notify_4/config`,
+                payload: {
+                    name: "Notify 4",
+                    command_topic: `${baseTopic}/chime/set`,
+                    payload_press: "800",
+                    unique_id: `charon_${this.identifier}_notify_4`,
+                    device: device,
+                },
+            },
+            {
+                topic: `homeassistant/button/charon_${this.identifier}_notify_5/config`,
+                payload: {
+                    name: "Notify 5",
+                    command_topic: `${baseTopic}/chime/set`,
+                    payload_press: "1000",
+                    unique_id: `charon_${this.identifier}_notify_5`,
                     device: device,
                 },
             },
