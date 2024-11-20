@@ -8,6 +8,7 @@ class MqttClient {
         this.relayController = relayController;
         this.identifier = process.env.IDENTIFIER || "asdf";
         this.client = null;
+        this.chimeEnabled = true;
 
         this.initialize();
     }
@@ -46,28 +47,43 @@ class MqttClient {
     handleConnect() {
         Logger.info("Connected to MQTT broker");
 
-        // Subscribe to chime and opener topics
-        this.client.subscribe(`${MqttClient.TOPIC_PREFIX}/${this.identifier}/chime/set`, (err) => {
-            if (err) {
-                Logger.error("Failed to subscribe to chime topic:", err.message);
-            } else {
-                Logger.info("Subscribed to chime topic");
-            } 
-        });
+        // Subscribe to chime, opener and chime switch topics
+        const topics = [
+            `${MqttClient.TOPIC_PREFIX}/${this.identifier}/chime/set`,
+            `${MqttClient.TOPIC_PREFIX}/${this.identifier}/opener/set`,
+            `${MqttClient.TOPIC_PREFIX}/${this.identifier}/chime/enabled/set`,
+        ];
 
-        this.client.subscribe(`${MqttClient.TOPIC_PREFIX}/${this.identifier}/opener/set`, (err) => {
-            if (err) {
-                Logger.error("Failed to subscribe to opener topic:", err.message);
-            } else {
-                Logger.info("Subscribed to opener topic");
-            }
+        topics.forEach((topic) => {
+            this.client.subscribe(topic, (err) => {
+                if (err) {
+                    Logger.error(`Failed to subscribe to topic ${topic}:`, err.message);
+                } else {
+                    Logger.info(`Subscribed to topic ${topic}`);
+                }
+            });
         });
 
         this.publishAutoconf();
+        this.publishChimeSwitchState(); // Publish the initial state of the switch
     }
 
     async handleMessage(topic, message) {
         let duration;
+
+        if (topic === `${MqttClient.TOPIC_PREFIX}/${this.identifier}/chime/enabled/set`) {
+            // Handle chime switch state
+            const state = message.toString().toLowerCase();
+            if (state === "on") {
+                this.chimeEnabled = true;
+                Logger.info("Chime enabled via MQTT switch");
+            } else if (state === "off") {
+                this.chimeEnabled = false;
+                Logger.info("Chime disabled via MQTT switch");
+            }
+            this.publishChimeSwitchState(); // Confirm the new state
+            return;
+        }
 
         try {
             const payload = JSON.parse(message.toString());
@@ -80,7 +96,11 @@ class MqttClient {
 
         try {
             if (topic === `${MqttClient.TOPIC_PREFIX}/${this.identifier}/chime/set`) {
-                await this.triggerChime(duration || 100); // Default to 100ms for chime
+                if (this.chimeEnabled) {
+                    await this.triggerChime(duration || 100); // Default to 100ms for chime
+                } else {
+                    Logger.info("Chime is disabled; skipping chime trigger");
+                }
             } else if (topic === `${MqttClient.TOPIC_PREFIX}/${this.identifier}/opener/set`) {
                 await this.triggerOpener(duration || 3000); // Default to 3000ms for opener
             }
@@ -148,6 +168,16 @@ class MqttClient {
                     device: device,
                 },
             },
+            {
+                topic: `homeassistant/switch/charon_${this.identifier}_chime_enabled/config`,
+                payload: {
+                    name: "Chime Enabled",
+                    command_topic: `${baseTopic}/chime/enabled/set`,
+                    state_topic: `${baseTopic}/chime/enabled/state`,
+                    unique_id: `charon_${this.identifier}_chime_enabled`,
+                    device: device,
+                },
+            },
         ];
 
         configurations.forEach(({ topic, payload }) => {
@@ -155,6 +185,13 @@ class MqttClient {
         });
 
         Logger.info("Published MQTT auto-discovery configuration");
+    }
+
+    publishChimeSwitchState() {
+        const topic = `${MqttClient.TOPIC_PREFIX}/${this.identifier}/chime/enabled/state`;
+        const payload = this.chimeEnabled ? "ON" : "OFF";
+        this.client.publish(topic, payload, { retain: true });
+        Logger.info(`Published chime switch state: ${payload}`);
     }
 
     publishDoorbellEvent() {

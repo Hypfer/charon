@@ -55,7 +55,12 @@ class Webserver {
 
         this.app.post("/doorbell", async (req, res) => {
             try {
-                await this.relayController.pulse(1, 100); // Pulse relay 1 for 100ms
+                if (this.mqttClient.chimeEnabled) {
+                    await this.relayController.pulse(1, 100); // Pulse relay 1 for 100ms
+                } else {
+                    Logger.info("Skipping chime as it is disabled");
+                }                
+
                 this.mqttClient.publishDoorbellEvent(); // Publish doorbell event via MQTT
                 res.status(200).json({ message: "Doorbell event triggered" });
             } catch (error) {
