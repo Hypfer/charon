@@ -52,24 +52,33 @@ class RelayController {
     }
     
     ensureRelay() {
-        if (!this.relay) {
-            try {
-                this.relay = new USBRelay();
-            } catch(e) {
-                this.relay = undefined;
-                
-                Logger.warn("Error while setting up USBRelay", e);
-                throw new Error("No relay");
-            }
-        } else {
-            try {
-                this.relay.getState();
-            } catch (e) {
-                this.relay = undefined;
+        let i = 0;
 
-                Logger.warn("Error while testing USBRelay", e);
-                throw new Error("No relay");
+        try {
+            this.relay?.getState();
+        } catch (e) {
+            this.relay = undefined;
+
+            Logger.warn("Error while testing USBRelay", e);
+        }
+        
+        if (!this.relay) {
+            while(i < 5) {
+                try {
+                    this.relay = new USBRelay();
+                    
+                    break;
+                } catch(e) {
+                    this.relay = undefined;
+
+                    Logger.warn("Error while setting up USBRelay", e);
+                    i++;
+                }
             }
+        }
+        
+        if (!this.relay) {
+            throw new Error("No relay");
         }
     }
 }
